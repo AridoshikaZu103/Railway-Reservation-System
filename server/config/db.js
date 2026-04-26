@@ -1,7 +1,8 @@
 const mysql = require("mysql2/promise");
 require("dotenv").config();
 
-const pool = mysql.createPool({
+// Allow using a full connection URL (like Railway's MYSQL_URL) or individual variables
+const dbConfig = process.env.MYSQL_URL || process.env.DATABASE_URL || {
   host: process.env.DB_HOST || "localhost",
   port: parseInt(process.env.DB_PORT) || 3306,
   user: process.env.DB_USER || "root",
@@ -10,7 +11,9 @@ const pool = mysql.createPool({
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
-});
+};
+
+const pool = mysql.createPool(dbConfig);
 
 // Test connection on startup
 pool

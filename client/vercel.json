@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "name": "railsync",
+  "name": "rail-sync",
   "framework": "vite",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",

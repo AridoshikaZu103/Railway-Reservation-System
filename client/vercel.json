@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "name": "rail-sync",
+  "name": "railway-reservation-system",
   "framework": "vite",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",

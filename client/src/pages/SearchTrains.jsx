@@ -5,7 +5,7 @@ import toast from 'react-hot-toast';
 
 const SearchTrains = () => {
   const [allTrains, setAllTrains] = useState([]);
-  const [searchParams, setSearchParams] = useState({ source: '', destination: '', train_number: '', train_name: '' });
+  const [searchParams, setSearchParams] = useState({ source: '', destination: '' });
   const [results, setResults] = useState([]);
   const [hasSearched, setHasSearched] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
@@ -20,12 +20,11 @@ const SearchTrains = () => {
   // Extract unique options for dropdowns
   const uniqueSources = [...new Set(allTrains.map(t => t.source))].sort();
   const uniqueDestinations = [...new Set(allTrains.map(t => t.destination))].sort();
-  const uniqueTrainNumbers = [...new Set(allTrains.map(t => t.train_number))].sort();
-  const uniqueTrainNames = [...new Set(allTrains.map(t => t.train_name))].sort();
+
 
   const handleSearch = (e) => {
     e.preventDefault();
-    if (!searchParams.source && !searchParams.destination && !searchParams.train_number && !searchParams.train_name) {
+    if (!searchParams.source && !searchParams.destination) {
       toast.error('Please select at least one search criteria');
       return;
     }
@@ -37,8 +36,7 @@ const SearchTrains = () => {
       let filtered = allTrains;
       if (searchParams.source) filtered = filtered.filter(t => t.source === searchParams.source);
       if (searchParams.destination) filtered = filtered.filter(t => t.destination === searchParams.destination);
-      if (searchParams.train_number) filtered = filtered.filter(t => t.train_number === searchParams.train_number);
-      if (searchParams.train_name) filtered = filtered.filter(t => t.train_name === searchParams.train_name);
+
       
       setResults(filtered);
       setHasSearched(true);
@@ -47,7 +45,7 @@ const SearchTrains = () => {
   };
 
   const handleReset = () => {
-    setSearchParams({ source: '', destination: '', train_number: '', train_name: '' });
+    setSearchParams({ source: '', destination: '' });
     setHasSearched(false);
     setResults([]);
   };
@@ -91,29 +89,7 @@ const SearchTrains = () => {
             </select>
           </div>
 
-          <div className="form-group" style={{ marginBottom: 0 }}>
-            <label>Train Number</label>
-            <select 
-              className="form-control" 
-              value={searchParams.train_number} 
-              onChange={e => setSearchParams({...searchParams, train_number: e.target.value})}
-            >
-              <option value="">-- Any Train Number --</option>
-              {uniqueTrainNumbers.map(num => <option key={num} value={num}>{num}</option>)}
-            </select>
-          </div>
 
-          <div className="form-group" style={{ marginBottom: 0 }}>
-            <label>Train Name</label>
-            <select 
-              className="form-control" 
-              value={searchParams.train_name} 
-              onChange={e => setSearchParams({...searchParams, train_name: e.target.value})}
-            >
-              <option value="">-- Any Train Name --</option>
-              {uniqueTrainNames.map(name => <option key={name} value={name}>{name}</option>)}
-            </select>
-          </div>
 
           <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'center', marginTop: '0.5rem' }}>
             <button type="submit" className="btn-primary" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', minWidth: '200px', justifyContent: 'center' }} disabled={isSearching}>

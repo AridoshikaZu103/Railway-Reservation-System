@@ -3,7 +3,8 @@
 -- MySQL 8.0+
 -- ============================================================
 
-CREATE DATABASE IF NOT EXISTS railway_reservation;
+DROP DATABASE IF EXISTS railway_reservation;
+CREATE DATABASE railway_reservation;
 USE railway_reservation;
 
 -- ============================================================

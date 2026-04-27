@@ -1,77 +1,87 @@
 -- ============================================================
--- Railway Reservation System — Database Schema
--- PostgreSQL Version (For Vercel Postgres)
+-- Railway Reservation System — Database Schema (ER Diagram Version)
+-- Exact Match to Provided ER Diagram
 -- ============================================================
 
-DROP TABLE IF EXISTS reservations CASCADE;
-DROP TABLE IF EXISTS trains CASCADE;
-DROP TABLE IF EXISTS passengers CASCADE;
-DROP TABLE IF EXISTS users CASCADE;
+DROP TABLE IF EXISTS payment_details CASCADE;
+DROP TABLE IF EXISTS passenger_booking CASCADE;
+DROP TABLE IF EXISTS train_schedule CASCADE;
+DROP TABLE IF EXISTS staff CASCADE;
+DROP TABLE IF EXISTS train CASCADE;
+DROP TABLE IF EXISTS station CASCADE;
 
 -- ============================================================
--- 1. USERS TABLE (Authentication & RBAC)
+-- 1. STATION TABLE
 -- ============================================================
-CREATE TABLE IF NOT EXISTS users (
-    user_id       SERIAL PRIMARY KEY,
-    email         VARCHAR(255) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
-    full_name     VARCHAR(100) NOT NULL,
-    role          VARCHAR(20) DEFAULT 'passenger' CHECK (role IN ('admin', 'passenger')),
-    created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+CREATE TABLE station (
+    station_id VARCHAR(50) PRIMARY KEY,
+    station_name VARCHAR(100) NOT NULL,
+    location VARCHAR(255) NOT NULL,
+    platform_count INT NOT NULL
 );
 
--- Index for login lookups
-CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+-- ============================================================
+-- 2. STAFF TABLE
+-- ============================================================
+CREATE TABLE staff (
+    staff_id VARCHAR(50) PRIMARY KEY,
+    staff_name VARCHAR(100) NOT NULL,
+    role VARCHAR(100) NOT NULL,
+    station_id VARCHAR(50) REFERENCES station(station_id) ON DELETE CASCADE,
+    station_name VARCHAR(100) NOT NULL,
+    salary DECIMAL(10, 2) NOT NULL
+);
 
 -- ============================================================
--- 2. PASSENGERS TABLE
+-- 3. TRAIN TABLE
 -- ============================================================
-CREATE TABLE IF NOT EXISTS passengers (
-    passenger_id   SERIAL PRIMARY KEY,
+CREATE TABLE train (
+    train_id VARCHAR(50) PRIMARY KEY,
+    train_name VARCHAR(100) NOT NULL,
+    total_seats INT NOT NULL,
+    available_seats INT NOT NULL,
+    source_station VARCHAR(100) NOT NULL,
+    destination_station VARCHAR(100) NOT NULL
+);
+
+-- ============================================================
+-- 4. TRAIN SCHEDULE TABLE (Maps Train to Station)
+-- ============================================================
+CREATE TABLE train_schedule (
+    train_id VARCHAR(50) REFERENCES train(train_id) ON DELETE CASCADE,
+    station_id VARCHAR(50) REFERENCES station(station_id) ON DELETE CASCADE,
+    station_name VARCHAR(100) NOT NULL,
+    arrival_time TIME NOT NULL,
+    destination_time TIME NOT NULL,
+    day_of_run VARCHAR(50) NOT NULL,
+    PRIMARY KEY (train_id, station_id)
+);
+
+-- ============================================================
+-- 5. PASSENGER BOOKING TABLE
+-- ============================================================
+CREATE TABLE passenger_booking (
+    booking_id VARCHAR(50) PRIMARY KEY,
+    passenger_id VARCHAR(50) NOT NULL,
     passenger_name VARCHAR(100) NOT NULL,
-    age            INT NOT NULL CHECK (age > 0 AND age <= 150),
-    gender         VARCHAR(20) NOT NULL CHECK (gender IN ('Male', 'Female', 'Other')),
-    contact        VARCHAR(15) NOT NULL,
-    email          VARCHAR(255),
-    created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    passenger_age INT NOT NULL,
+    passenger_gender VARCHAR(20) NOT NULL,
+    coach_type VARCHAR(50) NOT NULL,
+    train_id VARCHAR(50) REFERENCES train(train_id) ON DELETE CASCADE,
+    seat_number INT NOT NULL,
+    source_station VARCHAR(100) NOT NULL,
+    destination_station VARCHAR(100) NOT NULL,
+    ticket_status VARCHAR(50) NOT NULL
 );
 
 -- ============================================================
--- 3. TRAINS TABLE
+-- 6. PAYMENT DETAILS TABLE
 -- ============================================================
-CREATE TABLE IF NOT EXISTS trains (
-    train_id        SERIAL PRIMARY KEY,
-    train_number    VARCHAR(10) UNIQUE NOT NULL,
-    train_name      VARCHAR(100) NOT NULL,
-    source          VARCHAR(100) NOT NULL,
-    destination     VARCHAR(100) NOT NULL,
-    total_seats     INT NOT NULL CHECK (total_seats > 0),
-    available_seats INT NOT NULL CHECK (available_seats >= 0),
-    departure_time  TIME NOT NULL,
-    arrival_time    TIME NOT NULL,
-    fare            DECIMAL(10, 2) NOT NULL CHECK (fare > 0),
-    created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+CREATE TABLE payment_details (
+    payment_id VARCHAR(50) PRIMARY KEY,
+    booking_id VARCHAR(50) REFERENCES passenger_booking(booking_id) ON DELETE CASCADE,
+    payment_date DATE NOT NULL,
+    amount DECIMAL(10, 2) NOT NULL,
+    payment_mode VARCHAR(50) NOT NULL CHECK (payment_mode IN ('UPI', 'Credit Card', 'Debit Card', 'Net Banking', 'Cash')),
+    booking_status VARCHAR(50) NOT NULL CHECK (booking_status IN ('Confirmed', 'Pending', 'Failed'))
 );
-
--- Indexes for frequent searches
-CREATE INDEX IF NOT EXISTS idx_trains_number ON trains(train_number);
-CREATE INDEX IF NOT EXISTS idx_trains_route ON trains(source, destination);
-
--- ============================================================
--- 4. RESERVATIONS TABLE
--- ============================================================
-CREATE TABLE IF NOT EXISTS reservations (
-    reservation_id SERIAL PRIMARY KEY,
-    passenger_id   INT NOT NULL REFERENCES passengers(passenger_id) ON DELETE CASCADE,
-    train_id       INT NOT NULL REFERENCES trains(train_id) ON DELETE RESTRICT,
-    booking_date   DATE NOT NULL,
-    travel_date    DATE NOT NULL,
-    seat_number    INT,
-    status         VARCHAR(20) DEFAULT 'confirmed' CHECK (status IN ('confirmed', 'cancelled', 'waitlisted')),
-    created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Index for reservation lookups
-CREATE INDEX IF NOT EXISTS idx_reservations_passenger ON reservations(passenger_id);
-CREATE INDEX IF NOT EXISTS idx_reservations_train ON reservations(train_id);
-CREATE INDEX IF NOT EXISTS idx_reservations_status ON reservations(status);

@@ -3,8 +3,12 @@
   "version": "1.0.0",
   "description": "Root package.json for Railway.app Monorepo deployment",
   "scripts": {
-    "postinstall": "npm install --prefix server",
-    "start": "npm start --prefix server"
+    "postinstall": "npm install --prefix server && npm install --prefix client",
+    "start": "npm start --prefix server",
+    "dev": "concurrently \"npm run dev --prefix server\" \"npm run dev --prefix client\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
   },
   "engines": {
     "node": ">=18.0.0"

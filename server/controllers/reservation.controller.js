@@ -17,7 +17,7 @@ exports.getAll = async (req, res) => {
       ORDER BY r.created_at DESC
     `;
 
-    const [reservations] = await pool.query(query);
+    const { rows: reservations } = await pool.query(query);
 
     res.json({
       success: true,
@@ -38,7 +38,7 @@ exports.getAll = async (req, res) => {
  * Create a new reservation (Admin only)
  */
 exports.create = async (req, res) => {
-  const connection = await pool.getConnection();
+  const connection = await pool.connect();
   try {
     const { passenger_id, train_id, travel_date } = req.body;
 
@@ -49,16 +49,16 @@ exports.create = async (req, res) => {
       });
     }
 
-    await connection.beginTransaction();
+    await connection.query("BEGIN");
 
     // Check if train exists and has available seats
-    const [trains] = await connection.query(
-      "SELECT total_seats, available_seats FROM trains WHERE train_id = ? FOR UPDATE",
+    const { rows: trains } = await connection.query(
+      "SELECT total_seats, available_seats FROM trains WHERE train_id = $1 FOR UPDATE",
       [train_id]
     );
 
     if (trains.length === 0) {
-      await connection.rollback();
+      await connection.query("ROLLBACK");
       return res.status(404).json({
         success: false,
         message: "Train not found.",
@@ -68,7 +68,7 @@ exports.create = async (req, res) => {
     const train = trains[0];
 
     if (train.available_seats <= 0) {
-      await connection.rollback();
+      await connection.query("ROLLBACK");
       return res.status(400).json({
         success: false,
         message: "Booking failed. No available seats on this train.",
@@ -76,13 +76,13 @@ exports.create = async (req, res) => {
     }
 
     // Check if passenger exists
-    const [passengers] = await connection.query(
-      "SELECT passenger_id FROM passengers WHERE passenger_id = ?",
+    const { rows: passengers } = await connection.query(
+      "SELECT passenger_id FROM passengers WHERE passenger_id = $1",
       [passenger_id]
     );
 
     if (passengers.length === 0) {
-      await connection.rollback();
+      await connection.query("ROLLBACK");
       return res.status(404).json({
         success: false,
         message: "Passenger not found.",
@@ -95,21 +95,21 @@ exports.create = async (req, res) => {
 
     // Insert reservation
     // NOTE: The trigger trg_after_reservation_insert will automatically decrement available_seats
-    const [result] = await connection.query(
+    const { rows: result } = await connection.query(
       `INSERT INTO reservations (passenger_id, train_id, booking_date, travel_date, seat_number, status)
-       VALUES (?, ?, ?, ?, ?, 'confirmed')`,
+       VALUES ($1, $2, $3, $4, $5, 'confirmed') RETURNING reservation_id`,
       [passenger_id, train_id, booking_date, travel_date, seat_number]
     );
 
-    await connection.commit();
+    await connection.query("COMMIT");
 
-    const [newReservation] = await pool.query(
+    const { rows: newReservation } = await pool.query(
       `SELECT r.*, p.passenger_name, t.train_name, t.train_number 
        FROM reservations r
        JOIN passengers p ON r.passenger_id = p.passenger_id
        JOIN trains t ON r.train_id = t.train_id
-       WHERE r.reservation_id = ?`,
-      [result.insertId]
+       WHERE r.reservation_id = $1`,
+      [result[0].reservation_id]
     );
 
     res.status(201).json({
@@ -118,7 +118,7 @@ exports.create = async (req, res) => {
       data: newReservation[0],
     });
   } catch (error) {
-    await connection.rollback();
+    await connection.query("ROLLBACK");
     console.error("Create reservation error:", error);
     res.status(500).json({
       success: false,
@@ -137,8 +137,8 @@ exports.cancel = async (req, res) => {
   try {
     const reservation_id = req.params.id;
 
-    const [existing] = await pool.query(
-      "SELECT status FROM reservations WHERE reservation_id = ?",
+    const { rows: existing } = await pool.query(
+      "SELECT status FROM reservations WHERE reservation_id = $1",
       [reservation_id]
     );
 
@@ -159,7 +159,7 @@ exports.cancel = async (req, res) => {
     // Update status to cancelled
     // NOTE: The trigger trg_after_reservation_cancel will automatically increment available_seats
     await pool.query(
-      "UPDATE reservations SET status = 'cancelled' WHERE reservation_id = ?",
+      "UPDATE reservations SET status = 'cancelled' WHERE reservation_id = $1",
       [reservation_id]
     );
 

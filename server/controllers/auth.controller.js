@@ -35,8 +35,8 @@ exports.register = async (req, res) => {
     }
 
     // Check if email already exists
-    const [existing] = await pool.query(
-      "SELECT user_id FROM users WHERE email = ?",
+    const { rows: existing } = await pool.query(
+      "SELECT user_id FROM users WHERE email = $1",
       [email]
     );
     if (existing.length > 0) {
@@ -51,13 +51,13 @@ exports.register = async (req, res) => {
     const password_hash = await bcrypt.hash(password, salt);
 
     // Insert user
-    const [result] = await pool.query(
-      "INSERT INTO users (email, password_hash, full_name, role) VALUES (?, ?, ?, ?)",
+    const { rows: result } = await pool.query(
+      "INSERT INTO users (email, password_hash, full_name, role) VALUES ($1, $2, $3, $4) RETURNING user_id",
       [email, password_hash, full_name, role || "passenger"]
     );
 
     const newUser = {
-      user_id: result.insertId,
+      user_id: result[0].user_id,
       email,
       full_name,
       role: role || "passenger",
@@ -95,7 +95,7 @@ exports.login = async (req, res) => {
     }
 
     // Find user
-    const [users] = await pool.query("SELECT * FROM users WHERE email = ?", [
+    const { rows: users } = await pool.query("SELECT * FROM users WHERE email = $1", [
       email,
     ]);
     if (users.length === 0) {
@@ -154,8 +154,8 @@ exports.login = async (req, res) => {
  */
 exports.getMe = async (req, res) => {
   try {
-    const [users] = await pool.query(
-      "SELECT user_id, email, full_name, role, created_at FROM users WHERE user_id = ?",
+    const { rows: users } = await pool.query(
+      "SELECT user_id, email, full_name, role, created_at FROM users WHERE user_id = $1",
       [req.user.user_id]
     );
 

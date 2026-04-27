@@ -12,14 +12,14 @@ exports.getAll = async (req, res) => {
 
     if (search) {
       query +=
-        " WHERE passenger_name LIKE ? OR contact LIKE ? OR email LIKE ?";
+        " WHERE passenger_name LIKE $1 OR contact LIKE $1 OR email LIKE $1";
       const searchTerm = `%${search}%`;
-      params = [searchTerm, searchTerm, searchTerm];
+      params = [searchTerm];
     }
 
     query += " ORDER BY created_at DESC";
 
-    const [passengers] = await pool.query(query, params);
+    const { rows: passengers } = await pool.query(query, params);
 
     res.json({
       success: true,
@@ -41,8 +41,8 @@ exports.getAll = async (req, res) => {
  */
 exports.getById = async (req, res) => {
   try {
-    const [passengers] = await pool.query(
-      "SELECT * FROM passengers WHERE passenger_id = ?",
+    const { rows: passengers } = await pool.query(
+      "SELECT * FROM passengers WHERE passenger_id = $1",
       [req.params.id]
     );
 
@@ -90,14 +90,14 @@ exports.create = async (req, res) => {
       });
     }
 
-    const [result] = await pool.query(
-      "INSERT INTO passengers (passenger_name, age, gender, contact, email) VALUES (?, ?, ?, ?, ?)",
+    const { rows: result } = await pool.query(
+      "INSERT INTO passengers (passenger_name, age, gender, contact, email) VALUES ($1, $2, $3, $4, $5) RETURNING passenger_id",
       [passenger_name, age, gender, contact, email || null]
     );
 
-    const [newPassenger] = await pool.query(
-      "SELECT * FROM passengers WHERE passenger_id = ?",
-      [result.insertId]
+    const { rows: newPassenger } = await pool.query(
+      "SELECT * FROM passengers WHERE passenger_id = $1",
+      [result[0].passenger_id]
     );
 
     res.status(201).json({
@@ -123,8 +123,8 @@ exports.update = async (req, res) => {
     const { passenger_name, age, gender, contact, email } = req.body;
 
     // Check if passenger exists
-    const [existing] = await pool.query(
-      "SELECT * FROM passengers WHERE passenger_id = ?",
+    const { rows: existing } = await pool.query(
+      "SELECT * FROM passengers WHERE passenger_id = $1",
       [req.params.id]
     );
     if (existing.length === 0) {
@@ -144,17 +144,17 @@ exports.update = async (req, res) => {
 
     await pool.query(
       `UPDATE passengers 
-       SET passenger_name = COALESCE(?, passenger_name),
-           age = COALESCE(?, age),
-           gender = COALESCE(?, gender),
-           contact = COALESCE(?, contact),
-           email = COALESCE(?, email)
-       WHERE passenger_id = ?`,
+       SET passenger_name = COALESCE($1, passenger_name),
+           age = COALESCE($2, age),
+           gender = COALESCE($3, gender),
+           contact = COALESCE($4, contact),
+           email = COALESCE($5, email)
+       WHERE passenger_id = $6`,
       [passenger_name, age, gender, contact, email, req.params.id]
     );
 
-    const [updated] = await pool.query(
-      "SELECT * FROM passengers WHERE passenger_id = ?",
+    const { rows: updated } = await pool.query(
+      "SELECT * FROM passengers WHERE passenger_id = $1",
       [req.params.id]
     );
 
@@ -178,8 +178,8 @@ exports.update = async (req, res) => {
  */
 exports.remove = async (req, res) => {
   try {
-    const [existing] = await pool.query(
-      "SELECT * FROM passengers WHERE passenger_id = ?",
+    const { rows: existing } = await pool.query(
+      "SELECT * FROM passengers WHERE passenger_id = $1",
       [req.params.id]
     );
     if (existing.length === 0) {
@@ -189,7 +189,7 @@ exports.remove = async (req, res) => {
       });
     }
 
-    await pool.query("DELETE FROM passengers WHERE passenger_id = ?", [
+    await pool.query("DELETE FROM passengers WHERE passenger_id = $1", [
       req.params.id,
     ]);
 
@@ -199,7 +199,7 @@ exports.remove = async (req, res) => {
     });
   } catch (error) {
     console.error("Delete passenger error:", error);
-    if (error.code === "ER_ROW_IS_REFERENCED_2") {
+    if (error.code === "23503") {
       return res.status(409).json({
         success: false,
         message:

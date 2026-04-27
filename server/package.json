@@ -13,8 +13,13 @@
     "dotenv": "^16.4.5",
     "express": "^4.21.0",
     "jsonwebtoken": "^9.0.2",
-    "mysql2": "^3.11.0"
+    "pg": "^8.20.0"
   },
-  "keywords": ["railway", "reservation", "express", "mysql"],
+  "keywords": [
+    "railway",
+    "reservation",
+    "express",
+    "mysql"
+  ],
   "license": "MIT"
 }

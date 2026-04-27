@@ -6,7 +6,7 @@ const pool = require("../config/db");
  */
 exports.getAll = async (req, res) => {
   try {
-    const [trains] = await pool.query(
+    const { rows: trains } = await pool.query(
       "SELECT * FROM trains ORDER BY train_number ASC"
     );
 
@@ -35,24 +35,26 @@ exports.search = async (req, res) => {
     let query = "SELECT * FROM trains WHERE 1=1";
     let params = [];
 
+    let paramIndex = 1;
+
     if (train_number) {
-      query += " AND train_number = ?";
+      query += ` AND train_number = $${paramIndex++}`;
       params.push(train_number);
     }
 
     if (source) {
-      query += " AND LOWER(source) LIKE LOWER(?)";
+      query += ` AND LOWER(source) LIKE LOWER($${paramIndex++})`;
       params.push(`%${source}%`);
     }
 
     if (destination) {
-      query += " AND LOWER(destination) LIKE LOWER(?)";
+      query += ` AND LOWER(destination) LIKE LOWER($${paramIndex++})`;
       params.push(`%${destination}%`);
     }
 
     query += " ORDER BY departure_time ASC";
 
-    const [trains] = await pool.query(query, params);
+    const { rows: trains } = await pool.query(query, params);
 
     res.json({
       success: true,
@@ -74,8 +76,8 @@ exports.search = async (req, res) => {
  */
 exports.getById = async (req, res) => {
   try {
-    const [trains] = await pool.query(
-      "SELECT * FROM trains WHERE train_id = ?",
+    const { rows: trains } = await pool.query(
+      "SELECT * FROM trains WHERE train_id = $1",
       [req.params.id]
     );
 
@@ -134,8 +136,8 @@ exports.create = async (req, res) => {
     }
 
     // Check for duplicate train number
-    const [existing] = await pool.query(
-      "SELECT train_id FROM trains WHERE train_number = ?",
+    const { rows: existing } = await pool.query(
+      "SELECT train_id FROM trains WHERE train_number = $1",
       [train_number]
     );
     if (existing.length > 0) {
@@ -145,9 +147,9 @@ exports.create = async (req, res) => {
       });
     }
 
-    const [result] = await pool.query(
+    const { rows: result } = await pool.query(
       `INSERT INTO trains (train_number, train_name, source, destination, total_seats, available_seats, departure_time, arrival_time, fare)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING train_id`,
       [
         train_number,
         train_name,
@@ -161,9 +163,9 @@ exports.create = async (req, res) => {
       ]
     );
 
-    const [newTrain] = await pool.query(
-      "SELECT * FROM trains WHERE train_id = ?",
-      [result.insertId]
+    const { rows: newTrain } = await pool.query(
+      "SELECT * FROM trains WHERE train_id = $1",
+      [result[0].train_id]
     );
 
     res.status(201).json({
@@ -197,8 +199,8 @@ exports.update = async (req, res) => {
       fare,
     } = req.body;
 
-    const [existing] = await pool.query(
-      "SELECT * FROM trains WHERE train_id = ?",
+    const { rows: existing } = await pool.query(
+      "SELECT * FROM trains WHERE train_id = $1",
       [req.params.id]
     );
     if (existing.length === 0) {
@@ -210,15 +212,15 @@ exports.update = async (req, res) => {
 
     await pool.query(
       `UPDATE trains 
-       SET train_name = COALESCE(?, train_name),
-           source = COALESCE(?, source),
-           destination = COALESCE(?, destination),
-           total_seats = COALESCE(?, total_seats),
-           available_seats = COALESCE(?, available_seats),
-           departure_time = COALESCE(?, departure_time),
-           arrival_time = COALESCE(?, arrival_time),
-           fare = COALESCE(?, fare)
-       WHERE train_id = ?`,
+       SET train_name = COALESCE($1, train_name),
+           source = COALESCE($2, source),
+           destination = COALESCE($3, destination),
+           total_seats = COALESCE($4, total_seats),
+           available_seats = COALESCE($5, available_seats),
+           departure_time = COALESCE($6, departure_time),
+           arrival_time = COALESCE($7, arrival_time),
+           fare = COALESCE($8, fare)
+       WHERE train_id = $9`,
       [
         train_name,
         source,
@@ -232,8 +234,8 @@ exports.update = async (req, res) => {
       ]
     );
 
-    const [updated] = await pool.query(
-      "SELECT * FROM trains WHERE train_id = ?",
+    const { rows: updated } = await pool.query(
+      "SELECT * FROM trains WHERE train_id = $1",
       [req.params.id]
     );
 
@@ -257,8 +259,8 @@ exports.update = async (req, res) => {
  */
 exports.remove = async (req, res) => {
   try {
-    const [existing] = await pool.query(
-      "SELECT * FROM trains WHERE train_id = ?",
+    const { rows: existing } = await pool.query(
+      "SELECT * FROM trains WHERE train_id = $1",
       [req.params.id]
     );
 
@@ -269,7 +271,7 @@ exports.remove = async (req, res) => {
       });
     }
 
-    await pool.query("DELETE FROM trains WHERE train_id = ?", [req.params.id]);
+    await pool.query("DELETE FROM trains WHERE train_id = $1", [req.params.id]);
 
     res.json({
       success: true,
@@ -278,7 +280,7 @@ exports.remove = async (req, res) => {
   } catch (error) {
     console.error("Delete train error:", error);
     // Handle foreign key constraint error if reservations exist
-    if (error.code === 'ER_ROW_IS_REFERENCED_2') {
+    if (error.code === '23503') {
       return res.status(400).json({
         success: false,
         message: "Cannot delete this train because passenger reservations are attached to it.",

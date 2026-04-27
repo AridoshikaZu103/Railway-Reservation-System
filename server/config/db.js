@@ -1,29 +1,25 @@
-const mysql = require("mysql2/promise");
+const { Pool } = require("pg");
 require("dotenv").config();
 
-// Allow using a full connection URL (like Railway's MYSQL_URL) or individual variables
-const dbConfig = process.env.MYSQL_URL || process.env.DATABASE_URL || {
-  host: process.env.DB_HOST || "localhost",
-  port: parseInt(process.env.DB_PORT) || 3306,
-  user: process.env.DB_USER || "root",
-  password: process.env.DB_PASSWORD || "",
-  database: process.env.DB_NAME || "railway_reservation",
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
-};
+// Use Vercel Postgres URL or fallback to local connection string
+const connectionString = process.env.POSTGRES_URL || process.env.DATABASE_URL || `postgresql://${process.env.DB_USER || 'postgres'}:${process.env.DB_PASSWORD || ''}@${process.env.DB_HOST || 'localhost'}:${process.env.DB_PORT || 5432}/${process.env.DB_NAME || 'railway_reservation'}`;
 
-const pool = mysql.createPool(dbConfig);
+const pool = new Pool({
+  connectionString,
+  // If connecting to a cloud DB like Vercel, SSL is required:
+  ssl: (process.env.POSTGRES_URL || process.env.DATABASE_URL) ? { rejectUnauthorized: false } : false,
+  max: 10, // equivalent to connectionLimit
+});
 
 // Test connection on startup
 pool
-  .getConnection()
-  .then((conn) => {
-    console.log("✅ MySQL connected successfully");
-    conn.release();
+  .connect()
+  .then((client) => {
+    console.log("✅ PostgreSQL connected successfully");
+    client.release();
   })
   .catch((err) => {
-    console.error("❌ MySQL connection failed:", err.message);
+    console.error("❌ PostgreSQL connection failed:", err.message);
   });
 
 module.exports = pool;

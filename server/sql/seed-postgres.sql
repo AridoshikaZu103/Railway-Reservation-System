@@ -1,9 +1,7 @@
 -- ============================================================
 -- Railway Reservation System — Seed Data
--- MySQL 8.0+
+-- PostgreSQL Version
 -- ============================================================
-
-USE railway_reservation;
 
 -- ============================================================
 -- Admin User (password: admin123)
